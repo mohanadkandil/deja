@@ -1,6 +1,7 @@
 import os
 import uuid
 from typing import Optional
+from dotenv import load_dotenv
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
@@ -15,9 +16,19 @@ from qdrant_client.models import (
 from .embeddings import embed_single, embed_text_sync, EMBED_DIMENSIONS
 from .models import Pattern, PatternMetadata, ReasoningTrace
 
+load_dotenv()
+
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
 COLLECTION_NAME = "patterns"
+
+# Namespace for generating deterministic UUIDs from pattern_ids
+PATTERN_UUID_NAMESPACE = uuid.UUID("a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+
+
+def pattern_id_to_uuid(pattern_id: str) -> str:
+    """Convert string pattern_id to a deterministic UUID."""
+    return str(uuid.uuid5(PATTERN_UUID_NAMESPACE, pattern_id))
 
 
 class KnowledgeGraph:
@@ -51,9 +62,10 @@ class KnowledgeGraph:
         """Add a pattern to the knowledge graph."""
         searchable_text = self._pattern_to_searchable_text(pattern)
         vector = await embed_single(searchable_text)
+        point_id = pattern_id_to_uuid(pattern.pattern_id)
 
         point = PointStruct(
-            id=pattern.pattern_id,
+            id=point_id,
             vector=vector,
             payload=pattern.model_dump(mode="json")
         )
@@ -70,9 +82,10 @@ class KnowledgeGraph:
         searchable_text = self._pattern_to_searchable_text(pattern)
         vectors = embed_text_sync(searchable_text)
         vector = vectors[0]
+        point_id = pattern_id_to_uuid(pattern.pattern_id)
 
         point = PointStruct(
-            id=pattern.pattern_id,
+            id=point_id,
             vector=vector,
             payload=pattern.model_dump(mode="json")
         )
@@ -116,9 +129,9 @@ class KnowledgeGraph:
                 ]
             )
 
-        results = self.client.search(
+        results = self.client.query_points(
             collection_name=COLLECTION_NAME,
-            query_vector=query_vector,
+            query=query_vector,
             query_filter=search_filter,
             limit=limit,
             score_threshold=score_threshold,
@@ -127,18 +140,19 @@ class KnowledgeGraph:
 
         return [
             {
-                "pattern": result.payload,
-                "score": result.score,
-                "pattern_id": result.id
+                "pattern": point.payload,
+                "score": point.score,
+                "pattern_id": point.payload.get("pattern_id", point.id)
             }
-            for result in results
+            for point in results.points
         ]
 
     async def get_pattern(self, pattern_id: str) -> Optional[dict]:
         """Get a specific pattern by ID."""
+        point_id = pattern_id_to_uuid(pattern_id)
         results = self.client.retrieve(
             collection_name=COLLECTION_NAME,
-            ids=[pattern_id],
+            ids=[point_id],
             with_payload=True
         )
 
@@ -178,8 +192,8 @@ class KnowledgeGraph:
         collection_info = self.client.get_collection(COLLECTION_NAME)
         return {
             "total_patterns": collection_info.points_count,
-            "vectors_count": collection_info.vectors_count,
-            "collection_status": collection_info.status
+            "indexed_vectors": collection_info.indexed_vectors_count,
+            "status": str(collection_info.status)
         }
 
     def delete_all(self):

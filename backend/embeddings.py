@@ -1,11 +1,20 @@
 import os
 import httpx
 from typing import Union
+from dotenv import load_dotenv
 
-MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
+load_dotenv()
+
 MISTRAL_EMBED_URL = "https://api.mistral.ai/v1/embeddings"
 EMBED_MODEL = "mistral-embed"
 EMBED_DIMENSIONS = 1024
+
+
+def _get_api_key() -> str:
+    key = os.getenv("MISTRAL_API_KEY")
+    if not key:
+        raise ValueError("MISTRAL_API_KEY not set in environment")
+    return key
 
 
 async def embed_text(text: Union[str, list[str]]) -> list[list[float]]:
@@ -25,7 +34,7 @@ async def embed_text(text: Union[str, list[str]]) -> list[list[float]]:
         response = await client.post(
             MISTRAL_EMBED_URL,
             headers={
-                "Authorization": f"Bearer {MISTRAL_API_KEY}",
+                "Authorization": f"Bearer {_get_api_key()}",
                 "Content-Type": "application/json"
             },
             json={
@@ -56,7 +65,7 @@ def embed_text_sync(text: Union[str, list[str]]) -> list[list[float]]:
     response = requests.post(
         MISTRAL_EMBED_URL,
         headers={
-            "Authorization": f"Bearer {MISTRAL_API_KEY}",
+            "Authorization": f"Bearer {_get_api_key()}",
             "Content-Type": "application/json"
         },
         json={

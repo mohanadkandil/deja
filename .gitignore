@@ -1,0 +1,58 @@
+# Environment
+.env
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+eggs/
+*.egg
+
+# UV
+.uv/
+uv.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Qdrant data
+qdrant_data/
+
+# Data files (large)
+data/*.jsonl
+data/*.json
+!data/scripts/
+
+# Models
+*.pt
+*.bin
+*.safetensors
+distilled_model/
+
+# W&B
+wandb/
+
+# Logs
+*.log
+logs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Misc
+*.bak
+*.tmp
